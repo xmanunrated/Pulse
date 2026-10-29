@@ -64,7 +64,8 @@ export default function Home(){
  const eligible=farmers.filter(f=>f.consent==='Eligible');
  const completed=calls.filter(c=>c.status==='Completed').length;
  function flash(msg:string){setNotice(msg);window.setTimeout(()=>setNotice(''),3500)}
- function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
+ function csvCell(value:unknown){const text=String(value);const safe=/^\s*[=+\-@]/.test(text)?"'"+text:text;return '"'+safe.replaceAll('"','""')+'"'}
+ function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
  function download(content:string,name:string,type:string){const u=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
  function parseCsv(text:string):string[][] {
   const rows:string[][]=[];
