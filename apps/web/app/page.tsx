@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BookOpenCheck, Building2, CalendarDays, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, Database, FileSpreadsheet, Filter, Headphones, LayoutDashboard, MapPin, Menu, MoreHorizontal, PhoneCall, Plus, Search, Settings2, ShieldCheck, Sprout, Upload, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BookOpenCheck, Building2, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, Database, FileSpreadsheet, Headphones, LayoutDashboard, MapPin, Menu, MoreHorizontal, PhoneCall, Plus, Search, Settings2, ShieldCheck, Sprout, Upload, Users, X, type LucideIcon } from 'lucide-react';
 
 type Tab = 'overview'|'activities'|'knowledge'|'sampling'|'calls'|'reports';
 type ActivityRow = { id:string; staff:string; village:string; district:string; date:string; product:string; farmers:number; status:'Imported'|'Validated'|'In audit'|'Completed'|'Needs review'; };
@@ -33,7 +33,7 @@ const initialCalls:CallRow[]=[
  {id:'CALL-0079',farmer:'विजय पासवान',village:'बिहटा',language:'Bhojpuri',status:'Queued',duration:'—',score:null},
  {id:'CALL-0078',farmer:'अशोक कुमार',village:'फुलवारी',language:'Hindi',status:'No answer',duration:'00:18',score:null},
 ];
-const nav:{id:Tab;label:string;icon:any;group:string}[]=[
+const nav:{id:Tab;label:string;icon:LucideIcon;group:string}[]=[
  {id:'overview',label:'Overview',icon:LayoutDashboard,group:'WORKSPACE'},
  {id:'activities',label:'Field activities',icon:MapPin,group:'WORKSPACE'},
  {id:'knowledge',label:'Product knowledge',icon:BookOpenCheck,group:'AUDIT ENGINE'},
@@ -79,8 +79,8 @@ export default function Home(){
     else cell+=ch;
    }else if(ch==='"'&&cell.length===0)quoted=true;
    else if(ch===','){row.push(cell.trim());cell=''}
-   else if(ch==='\\n'||ch==='\\r'){
-    if(ch==='\\r'&&text[i+1]==='\\n')i++;
+   else if(ch==='\n'||ch==='\r'){
+    if(ch==='\r'&&text[i+1]==='\n')i++;
     row.push(cell.trim());cell='';
     if(row.some(value=>value.length>0))rows.push(row);
     row=[];
@@ -95,7 +95,7 @@ export default function Home(){
   reader.onload=()=>{
    const rows=parseCsv(String(reader.result||''));
    if(rows.length<2){flash('CSV needs a header and at least one row');return}
-   const headers=rows[0].map(x=>x.replace(/^\\uFEFF/,'').toLowerCase());
+   const headers=rows[0].map(x=>x.replace(/^\uFEFF/,'').toLowerCase());
    const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.includes(n)));
    const staffI=idx(['staff','employee','agent','कर्मचारी']);
    const villageI=idx(['village','गाँव','गांव']);
@@ -167,3 +167,4 @@ function StatusPill({value}:{value:string}){return <span className={`status-pill
 function PageTitle({eyebrow,title,subtitle,actions}:{eyebrow:string;title:string;subtitle:string;actions?:React.ReactNode}){return <div className="page-title-row"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p className="subtitle">{subtitle}</p></div><div className="title-actions">{actions}</div></div>}
 function ActivityTable({rows,onOpen}:{rows:ActivityRow[];onOpen:(id:string)=>void}){return <div className="table-scroll"><table><thead><tr><th>Activity</th><th>Field staff</th><th>Location</th><th>Activity date</th><th>Product ID</th><th>Farmers</th><th>Status</th><th></th></tr></thead><tbody>{rows.map(a=><tr key={a.id}><td><button className="table-id" onClick={()=>onOpen(a.id)}>{a.id}</button></td><td><div className="staff-cell"><span className="staff-avatar">{a.staff.split(' ').map(s=>s[0]).slice(0,2).join('')}</span><b>{a.staff}</b></div></td><td>{a.village}<small className="cell-sub">{a.district}</small></td><td>{a.date}</td><td><span className="mono product-code">{a.product}</span></td><td><b>{a.farmers}</b></td><td><StatusPill value={a.status}/></td><td><button className="row-more" title="Prepare sample" onClick={()=>onOpen(a.id)}><MoreHorizontal size={17}/></button></td></tr>)}</tbody></table>{rows.length===0&&<div className="empty-state">No activity records match this filter.</div>}</div>}
 function Rubric({title,items}:{title:string;items:[string,number][]}){return <div className="rubric"><h3>{title}</h3>{items.map(([label,value])=><div className="rubric-item" key={label}><div><span>{label}</span><b>{value}%</b></div><div className="progress-track"><i style={{width:`${value}%`}}/></div></div>)}</div>}
+
