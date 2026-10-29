@@ -85,12 +85,12 @@ export default function Home(){
    else if(ch==='\n'||ch==='\r'){
     if(ch==='\r'&&text[i+1]==='\n')i++;
     row.push(cell.trim());cell='';
-    if(row.some(value=>value.length>0))rows.push(row);
+    if(row.some(value=>value.length>0)){rows.push(row);if(rows.length>MAX_CSV_ROWS+1)return rows}
     row=[];
    }else cell+=ch;
   }
   row.push(cell.trim());
-  if(row.some(value=>value.length>0))rows.push(row);
+  if(row.some(value=>value.length>0)){rows.push(row);if(rows.length>MAX_CSV_ROWS+1)return rows}
   return rows;
  }
  function importFile(file:File){
