@@ -1,0 +1,34 @@
+name: Extract Farmer Activity Audit source
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/extract-farmer-activity-audit.yml'
+      - 'farmer-activity-audit-system.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract source archive into repository root
+        run: |
+          test -f farmer-activity-audit-system.zip
+          mkdir -p /tmp/faa-source
+          unzip -q farmer-activity-audit-system.zip -d /tmp/faa-source
+          test -d /tmp/faa-source/faa-system
+          cp -a /tmp/faa-source/faa-system/. .
+          rm -f farmer-activity-audit-system.zip
+      - name: Commit extracted source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: extract farmer activity audit source"
+            git push
+          fi
