@@ -79,8 +79,8 @@ export default function Home(){
     else cell+=ch;
    }else if(ch==='"'&&cell.length===0)quoted=true;
    else if(ch===','){row.push(cell.trim());cell=''}
-   else if(ch==='\\n'||ch==='\\r'){
-    if(ch==='\\r'&&text[i+1]==='\\n')i++;
+   else if(ch==='\n'||ch==='\r'){
+    if(ch==='\r'&&text[i+1]==='\n')i++;
     row.push(cell.trim());cell='';
     if(row.some(value=>value.length>0))rows.push(row);
     row=[];
@@ -95,7 +95,7 @@ export default function Home(){
   reader.onload=()=>{
    const rows=parseCsv(String(reader.result||''));
    if(rows.length<2){flash('CSV needs a header and at least one row');return}
-   const headers=rows[0].map(x=>x.replace(/^\\uFEFF/,'').toLowerCase());
+   const headers=rows[0].map(x=>x.replace(/^\uFEFF/,'').toLowerCase());
    const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.includes(n)));
    const staffI=idx(['staff','employee','agent','कर्मचारी']);
    const villageI=idx(['village','गाँव','गांव']);
