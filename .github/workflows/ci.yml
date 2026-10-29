@@ -30,10 +30,13 @@ jobs:
           test -f apps/api/src/main.ts
           test -f apps/api/src/modules/activities.controller.ts
           test -f packages/shared/src/index.ts
+          test -f apps/voice-worker/package.json
+          test -f apps/job-worker/package.json
           test -f supabase/migrations/20261029155116_farmer_activity_audit_core.sql
+          test -f supabase/migrations/20261029155200_faa_rls_policies.sql
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Typecheck workspace packages
-        run: pnpm --recursive --if-present typecheck
-      - name: Build workspace packages
-        run: pnpm --recursive --if-present build
+      - name: Typecheck all workspace packages
+        run: pnpm --recursive run typecheck
+      - name: Build all workspace packages
+        run: pnpm --recursive run build
