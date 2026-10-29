@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,9 +22,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Verify required source files
+        run: |
+          test -f apps/web/package.json
+          test -f apps/web/app/page.tsx
+          test -f apps/api/package.json
+          test -f apps/api/src/main.ts
+          test -f apps/api/src/modules/activities.controller.ts
+          test -f packages/shared/src/index.ts
+          test -f supabase/migrations/20261029155116_farmer_activity_audit_core.sql
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Build
-        run: pnpm build
+      - name: Typecheck workspace packages
+        run: pnpm --recursive --if-present typecheck
+      - name: Build workspace packages
+        run: pnpm --recursive --if-present build
