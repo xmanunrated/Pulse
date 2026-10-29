@@ -42,6 +42,8 @@ const nav:{id:Tab;label:string;icon:LucideIcon;group:string}[]=[
  {id:'reports',label:'Reports & insights',icon:Activity,group:'INSIGHTS'},
 ];
 const statusTone:Record<string,string>={Validated:'green','In audit':'blue',Completed:'green',Imported:'gray','Needs review':'amber',Approved:'green',Draft:'gray','Review needed':'amber',Eligible:'green',Unknown:'amber','Opted out':'gray',Queued:'blue','No answer':'gray','Review required':'amber'};
+const MAX_CSV_BYTES=5*1024*1024;
+const MAX_CSV_ROWS=25000;
 
 export default function Home(){
  const [tab,setTab]=useState<Tab>('overview');
@@ -92,9 +94,11 @@ export default function Home(){
   return rows;
  }
  function importFile(file:File){
+  if(file.size>MAX_CSV_BYTES){flash('CSV is larger than 5 MB. Split it into smaller files and retry.');return}
   const reader=new FileReader();
   reader.onload=()=>{
    const rows=parseCsv(String(reader.result||''));
+    if(rows.length>MAX_CSV_ROWS+1){flash('CSV contains more than 25,000 activity rows. Split it into smaller files and retry.');return}
    if(rows.length<2){flash('CSV needs a header and at least one row');return}
    const headers=rows[0].map(x=>x.replace(/^\uFEFF/,'').toLowerCase());
    const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.includes(n)));
