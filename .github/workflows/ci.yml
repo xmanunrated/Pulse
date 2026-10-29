@@ -42,4 +42,3 @@ jobs:
         run: pnpm --filter @faa/web run lint
       - name: Build all workspace packages
         run: pnpm --recursive run build
-
