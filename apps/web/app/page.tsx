@@ -66,7 +66,62 @@ export default function Home(){
  function flash(msg:string){setNotice(msg);window.setTimeout(()=>setNotice(''),3500)}
  function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
  function download(content:string,name:string,type:string){const u=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
- function importFile(file:File){const reader=new FileReader();reader.onload=()=>{const text=String(reader.result||'');const lines=text.split(/\r?\n/).filter(Boolean);if(lines.length<2){flash('CSV needs a header and at least one row');return}const headers=lines[0].split(',').map(x=>x.trim().replace(/^"|"$/g,''));const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.toLowerCase().includes(n)));const staffI=idx(['staff','employee','agent','कर्मचारी']);const villageI=idx(['village','गाँव','गांव']);const dateI=idx(['date','तारीख']);const productI=idx(['product','sku','उत्पाद']);const farmersI=idx(['farmer count','farmers','participants','किसान']);const newRows:ActivityRow[]=lines.slice(1).map((line,i)=>{const cells=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));return{id:`ACT-${Date.now().toString().slice(-5)}${i}`,staff:cells[staffI]||'Unassigned',village:cells[villageI]||'Not mapped',district:'—',date:cells[dateI]||new Date().toLocaleDateString('en-IN'),product:cells[productI]||'UNMAPPED',farmers:Math.max(0,Number(cells[farmersI]||0)),status:'Imported'}});setActivities(p=>[...newRows,...p]);setModal(null);setTab('activities');flash(`${newRows.length} activity rows imported. Validate product and farmer mapping next.`)};reader.readAsText(file)}
+ function parseCsv(text:string):string[][] {
+  const rows:string[][]=[];
+  let row:string[]=[];
+  let cell='';
+  let quoted=false;
+  for(let i=0;i<text.length;i++){
+   const ch=text[i];
+   if(quoted){
+    if(ch==='"'&&text[i+1]==='"'){cell+='"';i++}
+    else if(ch==='"')quoted=false;
+    else cell+=ch;
+   }else if(ch==='"'&&cell.length===0)quoted=true;
+   else if(ch===','){row.push(cell.trim());cell=''}
+   else if(ch==='\\n'||ch==='\\r'){
+    if(ch==='\\r'&&text[i+1]==='\\n')i++;
+    row.push(cell.trim());cell='';
+    if(row.some(value=>value.length>0))rows.push(row);
+    row=[];
+   }else cell+=ch;
+  }
+  row.push(cell.trim());
+  if(row.some(value=>value.length>0))rows.push(row);
+  return rows;
+ }
+ function importFile(file:File){
+  const reader=new FileReader();
+  reader.onload=()=>{
+   const rows=parseCsv(String(reader.result||''));
+   if(rows.length<2){flash('CSV needs a header and at least one row');return}
+   const headers=rows[0].map(x=>x.replace(/^\\uFEFF/,'').toLowerCase());
+   const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.includes(n)));
+   const staffI=idx(['staff','employee','agent','कर्मचारी']);
+   const villageI=idx(['village','गाँव','गांव']);
+   const dateI=idx(['date','तारीख']);
+   const productI=idx(['product','sku','उत्पाद']);
+   const farmersI=idx(['farmer count','farmer_count','farmers','participants','किसान']);
+   const newRows:ActivityRow[]=rows.slice(1).map((cells,i)=>{
+    const count=Number(cells[farmersI]||0);
+    return {
+     id:`ACT-${Date.now().toString().slice(-5)}${i}`,
+     staff:cells[staffI]||'Unassigned',
+     village:cells[villageI]||'Not mapped',
+     district:'—',
+     date:cells[dateI]||new Date().toLocaleDateString('en-IN'),
+     product:cells[productI]||'UNMAPPED',
+     farmers:Number.isFinite(count)&&count>0?Math.floor(count):0,
+     status:'Imported'
+    };
+   });
+   if(!newRows.length){flash('No activity rows found in CSV');return}
+   setActivities(p=>[...newRows,...p]);
+   setModal(null);setTab('activities');
+   flash(`${newRows.length} activity rows imported. Validate product and farmer mapping next.`);
+  };
+  reader.readAsText(file);
+ }
  function addActivity(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const a:ActivityRow={id:`ACT-${Date.now().toString().slice(-5)}`,staff:String(f.get('staff')),village:String(f.get('village')),district:String(f.get('district')),date:String(f.get('date')),product:String(f.get('product')),farmers:Number(f.get('farmers')),status:'Imported'};setActivities(p=>[a,...p]);setModal(null);setTab('activities');flash('Activity saved as Imported. Validate before sampling.')}
  function addProduct(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const p:Product={sku:String(f.get('sku')).toUpperCase(),name:String(f.get('name')),category:String(f.get('category')),version:'v0.1',status:'Draft',claims:0};setProducts(old=>[p,...old]);setModal(null);setTab('knowledge');flash('Product created as Draft. Add approved facts before publishing.')}
  function createSample(e:FormEvent<HTMLFormElement>){e.preventDefault();const requested=Math.max(1,Number(sampleSize)||1);const activity=activities.find(a=>a.id===selectedActivity);const pool=farmers.filter(f=>f.activity===selectedActivity&&f.consent==='Eligible');const shuffled=[...pool].sort((a,b)=>hash(a.id+selectedActivity)-hash(b.id+selectedActivity));const chosen=shuffled.slice(0,Math.min(requested,shuffled.length));if(!activity){flash('Select an activity');return}if(!chosen.length){flash('No consent-eligible farmer records for this activity. Add/import consent records first.');return}const rows=chosen.map((f,i)=>({id:`CALL-${Date.now().toString().slice(-4)}${i}`,farmer:f.name,village:f.village,language:f.language,status:'Queued' as const,duration:'—',score:null}));setCalls(p=>[...rows,...p]);setActivities(p=>p.map(a=>a.id===selectedActivity?{...a,status:'In audit'}:a));setModal(null);setTab('calls');flash(`${chosen.length} call jobs queued in DEMO mode. No phone calls were placed.`)}
