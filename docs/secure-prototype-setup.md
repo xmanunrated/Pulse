@@ -55,6 +55,10 @@ Before applying the pending helper migration or exposing the secure page to user
 
 No live DDL has been applied as part of this runbook.
 
+## Hosting plan
+
+FieldLens is intended as a B2B product. Vercel's Fair Use Guidelines restrict Hobby to personal, non-commercial use and require Pro or Enterprise for commercial use. Confirm that the selected hosting plan fits the project's use and review current pricing before creating a project: [Vercel Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines#commercial-usage).
+
 ## When remote access is needed
 
 To let users access the prototype outside a developer's machine, deploy both the Next.js web app (`apps/web`) and NestJS API (`apps/api`) to hosting. Configure the production web origin in the API's `WEB_ORIGIN`, the public API URL in `NEXT_PUBLIC_FAA_API_URL`, and the exact production sign-in redirect in Supabase Auth. Keep the Supabase publishable key in the browser and any server-only credentials out of browser variables.
