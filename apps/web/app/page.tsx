@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BookOpenCheck, Building2, CalendarDays, Check, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, Database, FileSpreadsheet, Filter, Headphones, LayoutDashboard, MapPin, Menu, MoreHorizontal, PhoneCall, Plus, Search, Settings2, ShieldCheck, Sprout, Upload, Users, X, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BookOpenCheck, Building2, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, Database, FileSpreadsheet, Headphones, LayoutDashboard, MapPin, Menu, MoreHorizontal, PhoneCall, Plus, Search, Settings2, ShieldCheck, Sprout, Upload, Users, X, type LucideIcon } from 'lucide-react';
 
 type Tab = 'overview'|'activities'|'knowledge'|'sampling'|'calls'|'reports';
 type ActivityRow = { id:string; staff:string; village:string; district:string; date:string; product:string; farmers:number; status:'Imported'|'Validated'|'In audit'|'Completed'|'Needs review'; };
@@ -33,7 +34,7 @@ const initialCalls:CallRow[]=[
  {id:'CALL-0079',farmer:'विजय पासवान',village:'बिहटा',language:'Bhojpuri',status:'Queued',duration:'—',score:null},
  {id:'CALL-0078',farmer:'अशोक कुमार',village:'फुलवारी',language:'Hindi',status:'No answer',duration:'00:18',score:null},
 ];
-const nav:{id:Tab;label:string;icon:any;group:string}[]=[
+const nav:{id:Tab;label:string;icon:LucideIcon;group:string}[]=[
  {id:'overview',label:'Overview',icon:LayoutDashboard,group:'WORKSPACE'},
  {id:'activities',label:'Field activities',icon:MapPin,group:'WORKSPACE'},
  {id:'knowledge',label:'Product knowledge',icon:BookOpenCheck,group:'AUDIT ENGINE'},
@@ -42,6 +43,8 @@ const nav:{id:Tab;label:string;icon:any;group:string}[]=[
  {id:'reports',label:'Reports & insights',icon:Activity,group:'INSIGHTS'},
 ];
 const statusTone:Record<string,string>={Validated:'green','In audit':'blue',Completed:'green',Imported:'gray','Needs review':'amber',Approved:'green',Draft:'gray','Review needed':'amber',Eligible:'green',Unknown:'amber','Opted out':'gray',Queued:'blue','No answer':'gray','Review required':'amber'};
+const MAX_CSV_BYTES=5*1024*1024;
+const MAX_CSV_ROWS=25000;
 
 export default function Home(){
  const [tab,setTab]=useState<Tab>('overview');
@@ -64,7 +67,8 @@ export default function Home(){
  const eligible=farmers.filter(f=>f.consent==='Eligible');
  const completed=calls.filter(c=>c.status==='Completed').length;
  function flash(msg:string){setNotice(msg);window.setTimeout(()=>setNotice(''),3500)}
- function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
+ function csvCell(value:unknown){const text=String(value);const safe=/^\s*[=+\-@]/.test(text)?`'${text}`:text;return '"'+safe.replaceAll('"','""')+'"'}
+ function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
  function download(content:string,name:string,type:string){const u=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
  function parseCsv(text:string):string[][] {
   const rows:string[][]=[];
@@ -82,18 +86,20 @@ export default function Home(){
    else if(ch==='\n'||ch==='\r'){
     if(ch==='\r'&&text[i+1]==='\n')i++;
     row.push(cell.trim());cell='';
-    if(row.some(value=>value.length>0))rows.push(row);
+    if(row.some(value=>value.length>0)){rows.push(row);if(rows.length>MAX_CSV_ROWS+1)return rows}
     row=[];
    }else cell+=ch;
   }
   row.push(cell.trim());
-  if(row.some(value=>value.length>0))rows.push(row);
+  if(row.some(value=>value.length>0)){rows.push(row);if(rows.length>MAX_CSV_ROWS+1)return rows}
   return rows;
  }
  function importFile(file:File){
+  if(file.size>MAX_CSV_BYTES){flash('CSV is larger than 5 MB. Split it into smaller files and retry.');return}
   const reader=new FileReader();
   reader.onload=()=>{
    const rows=parseCsv(String(reader.result||''));
+    if(rows.length>MAX_CSV_ROWS+1){flash('CSV contains more than 25,000 activity rows. Split it into smaller files and retry.');return}
    if(rows.length<2){flash('CSV needs a header and at least one row');return}
    const headers=rows[0].map(x=>x.replace(/^\uFEFF/,'').toLowerCase());
    const idx=(names:string[])=>headers.findIndex(h=>names.some(n=>h.includes(n)));
@@ -135,7 +141,7 @@ export default function Home(){
    <div className="sidebar-bottom"><div className="secure-card"><div><ShieldCheck size={17}/><b>Audit integrity</b></div><p>Versioned product facts, consent gates and review trails.</p><span><i/> Demo workspace</span></div><button className="nav-link" onClick={()=>flash('Settings will be enabled after authentication is connected.')}><Settings2 size={17}/>Settings</button><div className="user-row"><div className="avatar">AS</div><div><b>Workspace admin</b><small>Demo account</small></div><MoreHorizontal size={17}/></div></div>
   </aside>
   <main className="main">
-   <header className="topbar"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={20}/></button><div className="breadcrumbs"><span>Workspace</span><b>/</b><strong>{nav.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><span className="env-pill"><i/> Pilot environment</span><button className="icon-button" title="Search" onClick={()=>document.getElementById('global-search')?.focus()}><Search size={18}/></button><div className="avatar small-avatar">AS</div></div></header>
+   <header className="topbar"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={20}/></button><div className="breadcrumbs"><span>Workspace</span><b>/</b><strong>{nav.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><span className="env-pill"><i/> Pilot environment</span><Link className="btn secondary small-btn" href="/secure-workspace">Open secure workspace</Link><button className="icon-button" title="Search" onClick={()=>document.getElementById('global-search')?.focus()}><Search size={18}/></button><div className="avatar small-avatar">AS</div></div></header>
    <div className="page-wrap">
     {tab==='overview'&&<>
      <div className="page-title-row"><div><div className="eyebrow">THURSDAY, 29 OCTOBER 2026 <span className="dot-sep">•</span> BIHAR PILOT</div><h1>Field activity overview</h1><p className="subtitle">Verify what happened in the field, using farmer feedback and approved product facts.</p></div><div className="title-actions"><button className="btn secondary" onClick={exportCsv}><ArrowDownToLine size={16}/> Export report</button><button className="btn primary" onClick={()=>setModal('activity')}><Plus size={16}/> Add activity</button></div></div>

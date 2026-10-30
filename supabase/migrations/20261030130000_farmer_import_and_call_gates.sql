@@ -1,0 +1,112 @@
+-- Farmer contact data stays encrypted; HMACs are used only for duplicate detection.
+alter table public.faa_farmers
+  add column if not exists do_not_call boolean not null default false,
+  add column if not exists opted_out_at timestamptz,
+  add column if not exists opt_out_source text;
+
+alter table public.faa_activity_participants
+  add column if not exists consent_method text,
+  add column if not exists consent_evidence_ref text,
+  add column if not exists recording_consent_at timestamptz,
+  add column if not exists recording_consent_evidence_ref text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'faa_farmers_opt_out_metadata_check'
+      and conrelid = 'public.faa_farmers'::regclass
+  ) then
+    alter table public.faa_farmers
+      add constraint faa_farmers_opt_out_metadata_check
+      check ((not do_not_call and opted_out_at is null and opt_out_source is null)
+        or (do_not_call and opted_out_at is not null and opt_out_source is not null)) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'faa_participants_consent_evidence_check'
+      and conrelid = 'public.faa_activity_participants'::regclass
+  ) then
+    alter table public.faa_activity_participants
+      add constraint faa_participants_consent_evidence_check
+      check (consent_status <> 'eligible' or (
+        consent_method is not null
+        and
+        consent_method in ('verbal', 'written', 'digital', 'partner_attestation')
+        and nullif(trim(consent_source), '') is not null
+        and nullif(trim(consent_purpose), '') is not null
+        and consent_at is not null
+        and nullif(trim(consent_evidence_ref), '') is not null
+      )) not valid;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'faa_participants_recording_evidence_check'
+      and conrelid = 'public.faa_activity_participants'::regclass
+  ) then
+    alter table public.faa_activity_participants
+      add constraint faa_participants_recording_evidence_check
+      check (recording_consent_status <> 'granted' or (
+        recording_consent_at is not null
+        and nullif(trim(recording_consent_evidence_ref), '') is not null
+      )) not valid;
+  end if;
+end $$;
+
+create index if not exists faa_farmers_opted_out_idx
+  on public.faa_farmers (org_id, id) where do_not_call;
+create index if not exists faa_participants_sample_eligibility_idx
+  on public.faa_activity_participants (org_id, activity_id, product_id, consent_status);
+
+-- A recorded farmer opt-out must never be cleared or have its provenance silently
+-- rewritten through a direct authenticated table update. Re-consent requires a
+-- separately reviewed workflow; this prototype has no such workflow.
+create or replace function private.faa_preserve_farmer_opt_out()
+returns trigger
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  if new.org_id is distinct from old.org_id
+    or new.phone_hmac is distinct from old.phone_hmac
+    or new.phone_encrypted is distinct from old.phone_encrypted then
+    raise exception 'A farmer organization and contact identity cannot be changed in place.'
+      using errcode = 'check_violation';
+  end if;
+
+  if old.do_not_call then
+    if not new.do_not_call
+      or new.opted_out_at is distinct from old.opted_out_at
+      or new.opt_out_source is distinct from old.opt_out_source then
+      raise exception 'A recorded opt-out cannot be cleared or altered.'
+        using errcode = 'check_violation';
+    end if;
+  elsif new.do_not_call then
+    if new.opted_out_at is null then
+      new.opted_out_at := pg_catalog.clock_timestamp();
+    end if;
+    if new.opt_out_source is null or pg_catalog.btrim(new.opt_out_source) = '' then
+      raise exception 'An opt-out source is required.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function private.faa_preserve_farmer_opt_out() from public, anon, authenticated;
+
+drop trigger if exists faa_farmers_preserve_opt_out on public.faa_farmers;
+create trigger faa_farmers_preserve_opt_out
+before update on public.faa_farmers
+for each row
+execute function private.faa_preserve_farmer_opt_out();
+
+-- RLS still scopes authenticated reads and writes, but it does not make TRUNCATE
+-- subject to row policies. The app has no farmer deletion flow, and removing a
+-- suppression row would allow the same contact to be re-imported without its DNC state.
+revoke all on table public.faa_farmers from anon;
+revoke delete, truncate, references, trigger on table public.faa_farmers from authenticated;
