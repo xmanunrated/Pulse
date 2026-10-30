@@ -1,6 +1,7 @@
 -- Required project setting: keep `private` out of the Supabase API's Exposed schemas.
 -- RLS policies still need authenticated EXECUTE on these helpers.
 create schema if not exists private;
+grant usage on schema private to authenticated;
 
 -- Moving the existing functions preserves their object identity, so policies
 -- that already reference them continue to work.
