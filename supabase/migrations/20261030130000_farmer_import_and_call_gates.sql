@@ -59,3 +59,41 @@ create index if not exists faa_farmers_opted_out_idx
   on public.faa_farmers (org_id, id) where do_not_call;
 create index if not exists faa_participants_sample_eligibility_idx
   on public.faa_activity_participants (org_id, activity_id, product_id, consent_status);
+
+-- A recorded farmer opt-out must never be cleared or have its provenance silently
+-- rewritten through a direct authenticated table update. Re-consent requires a
+-- separately reviewed workflow; this prototype has no such workflow.
+create or replace function private.faa_preserve_farmer_opt_out()
+returns trigger
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  if old.do_not_call then
+    if not new.do_not_call
+      or new.opted_out_at is distinct from old.opted_out_at
+      or new.opt_out_source is distinct from old.opt_out_source then
+      raise exception 'A recorded opt-out cannot be cleared or altered.'
+        using errcode = 'check_violation';
+    end if;
+  elsif new.do_not_call then
+    if new.opted_out_at is null then
+      new.opted_out_at := pg_catalog.clock_timestamp();
+    end if;
+    if new.opt_out_source is null or pg_catalog.btrim(new.opt_out_source) = '' then
+      raise exception 'An opt-out source is required.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function private.faa_preserve_farmer_opt_out() from public, anon, authenticated;
+
+drop trigger if exists faa_farmers_preserve_opt_out on public.faa_farmers;
+create trigger faa_farmers_preserve_opt_out
+before update on public.faa_farmers
+for each row
+execute function private.faa_preserve_farmer_opt_out();
