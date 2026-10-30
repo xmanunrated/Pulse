@@ -90,6 +90,14 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return apiResponse({ message: 'Could not save activity.' }, 500);
+  const { error: auditError } = await auth.client.from('faa_audit_events').insert({
+    org_id: activity.orgId,
+    actor_id: auth.userId,
+    event_type: 'activity.created',
+    entity_type: 'activity',
+    entity_id: data.id,
+    details: { staff_ref: activity.staffRef, village: activity.village, activity_date: activity.activityDate },
+  });
+  if (auditError) return apiResponse({ message: 'Activity was saved, but its audit event could not be recorded. Review the record before retrying.' }, 500);
   return apiResponse({ accepted: true, data }, 201);
 }
-

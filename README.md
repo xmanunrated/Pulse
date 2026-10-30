@@ -7,7 +7,9 @@ A Hindi/Bhojpuri-ready B2B SaaS foundation for independently auditing company-re
 - **Web dashboard (`apps/web`)**: responsive overview, activity register, product knowledge status, consent eligibility register, sample-batch creation, call queue, reports and CSV export.
 - **Demo workflow**: add activities/products, import simple CSV, filter activity rows, create reproducible sample selections, queue simulated calls and export reports. Demo records are stored in browser localStorage.
 - **Supabase schema foundation**: tenant/organization membership, product knowledge versions, activities, farmers, activity participants/consent, sampling batches, audit calls, assessments and audit event log. RLS is enabled on the new `faa_*` tables.
-- **NestJS API (`apps/api`)**: health endpoint and authenticated activity list/create routes. The API verifies Supabase access tokens, checks organization roles for writes and uses the caller's JWT so Supabase RLS remains in force; it does not use a service-role key. The dashboard is still a localStorage demo and does not call these routes.
+- **Authenticated web workspace (`/secure-workspace`)**: existing-account email-link sign-in, organization-scoped activities/products/knowledge, consent-evidence CSV import, an opt-out register, source-linked knowledge drafts/review, and sample-batch preparation/approval. All API requests verify the Supabase bearer token and use the caller JWT so RLS remains in force.
+- **Farmer data protection**: India mobile numbers are normalized, HMAC-deduplicated, and encrypted server-side with AES-256-GCM. Phone values are never returned to the browser. Imports are limited to 4 MB and 5,000 rows to fit Vercel Function request limits; a CSV template is available in the workspace.
+- **NestJS API (`apps/api`)**: health endpoint and authenticated activity list/create routes. The API verifies Supabase access tokens and checks organization roles for writes; it does not use a service-role key.
 - **Voice and queue worker scaffolds**: separate persistent-service entry points; they do not call real numbers or connect to a provider by default.
 - **Shared Zod contracts (`packages/shared`)** for import and assessment payloads.
 
@@ -32,7 +34,7 @@ cp apps/api/.env.example apps/api/.env
 pnpm dev
 ```
 
-In a second terminal, start the API with `pnpm --filter @faa/api dev`. Open `http://localhost:3000` for the localStorage demo dashboard or `http://localhost:3000/secure-activities` for the authenticated activity prototype. Configure the Supabase email sign-in redirect allowlist to include `http://localhost:3000/secure-activities`. The main dashboard remains demo-only; setting Supabase URL/key alone does **not** switch its data to live mode.
+In a second terminal, start the API with `pnpm --filter @faa/api dev`. Open `http://localhost:3000` for the localStorage demo dashboard, `/secure-activities` for protected activity management, or `/secure-workspace` for the authenticated farmer audit prototype. Add both local secure paths and the preview workspace path to Supabase's email redirect allowlist. For farmer import, set `FAA_PHONE_ENCRYPTION_KEY` and `FAA_PHONE_HMAC_KEY` as independent base64-encoded 32-byte server-only secrets (for example, generate each separately with `openssl rand -base64 32`). Never expose either key through a `NEXT_PUBLIC_*` variable. The main dashboard remains demo-only; setting Supabase URL/key alone does **not** switch its data to live mode.
 
 ## Monorepo packages
 
@@ -48,32 +50,32 @@ In a second terminal, start the API with `pnpm --filter @faa/api dev`. Open `htt
 - No real outbound phone calls are enabled.
 - No Exotel credentials or voice-model credentials are included.
 - No real farmer phone numbers or personal records are seeded; the visible names and scores are demo data.
-- Unknown/opted-out consent records are excluded by the sample demo.
+- The authenticated workspace stages and approves draft sample batches only. Its start endpoint always returns `LIVE_CALLING_DISABLED`; it has no provider dispatch path.
+- Unknown, declined, withdrawn, suppressed, incomplete-consent, and opted-out participants are excluded from eligible call samples. Consent requires method, purpose, source, timestamp, and an evidence reference. An opt-out is organization-wide and suppresses the farmer from future samples.
 - Call scoring is a review aid, not a finding of employee misconduct. Human review is required for low confidence or conflicting evidence.
-- Phone encryption/HMAC creation, webhook signature verification, idempotent dispatch, consent re-checks at dispatch time and audit transcript evidence must be implemented before production.
+- Phone encryption/HMAC are implemented for the authenticated CSV importer. Webhook signature verification, idempotent dispatch, consent re-checks at dispatch time, recording-consent handling, and audit transcript evidence remain unimplemented.
 - The live Supabase security advisor reported warnings on authenticated execution of two `SECURITY DEFINER` membership helper functions. A migration moves the helpers to `private`, but it has not been applied; verify the cloud API exposed-schema setting and migration history, apply through a reviewed release, and rerun the advisor before production. Do not treat the current security review as fully cleared.
+- The farmer-import migration `20261030130000_farmer_import_and_call_gates.sql` is committed in source but not applied to Supabase. Import and farmer listing therefore remain unavailable until the migration is reviewed/applied and server-only phone keys are configured.
+- The Supabase project was previously verified to have no Auth users, organizations, memberships or activities. Sign-in only accepts existing users; provision the internal QA user and an owner membership through a controlled admin workflow before using the page. The application does not provide open self-service organization creation.
 
 ## Next production gates
 
-1. Complete organization bootstrap/invites and production auth configuration. `/secure-activities` supports email-link sign-in for existing accounts; the API independently validates bearer tokens.
-2. Replace localStorage data in the main dashboard with authenticated tenant-scoped API calls and CRUD.
-3. Implement validated XLSX/CSV import with duplicate detection and import error report.
-4. Implement approved knowledge ingestion (source upload, structured claims, version approval and retrieval).
-5. Persist sampling batches, seed and selected participant IDs; enforce sample approval and eligibility server-side.
-6. Select telephony vendor, confirm account/API access and applicable Indian calling/consent compliance. Implement provider callbacks and WebSocket audio in `voice-worker`.
-7. Implement STT/LLM/TTS conversation state, Hindi/Bhojpuri handling, source-grounded assessment and human review queue.
-8. Add tests, secrets management, rate limits, monitoring, data retention policy and backup/restore validation.
-9. Connect a dedicated GitHub repository and Vercel project after account permissions allow it. No unrelated repository has been modified and no deployment has been claimed.
+1. Provision the internal QA Auth user and organization owner membership; confirm Supabase email redirects for both secure pages.
+2. Review and reconcile the pending `private` helper and farmer-import migrations against the live Supabase schema and migration ledger, then rerun security/performance advisors.
+3. Configure independent phone-protection secrets in the server runtime and verify import/opt-out behavior with synthetic test records only.
+4. Add automated route tests, CSV fuzz/error coverage, rate limits, operational monitoring, data retention, backups and restore validation.
+5. Select a telephony vendor and confirm account/KYC/access plus Indian telecom, preference and purpose-specific consent requirements. Implement and separately authorize any provider integration; no provider path is currently present.
+6. Implement signed provider callbacks, idempotent dispatch, consent checks at dispatch, safe call recording/transcription, Hindi/Bhojpuri conversation handling, source-grounded assessment, and human review before any live calling.
 
 ## Environment variables
 
-See `apps/web/.env.example` for the browser URL and publishable key, and `apps/api/.env.example` for the API URL, publishable key and allowed web origin. Never put a service-role key in the browser app or expose it through a `NEXT_PUBLIC_*` variable. The API has no service-role credential configured.
+See `apps/web/.env.example` for the browser URL/publishable key and server-only farmer phone protection keys. See `apps/api/.env.example` for the API URL, publishable key and allowed web origin. Never put a service-role key in browser code or expose any server-only secret through a `NEXT_PUBLIC_*` variable. The authenticated app uses caller-scoped tokens and no service-role credential.
 
 ## Activity API
 
 - `GET /v1/organizations` returns only the signed-in user's organization memberships and role, subject to RLS.
 - `GET /v1/activities` accepts an optional `orgId` UUID and returns at most 500 rows visible to the authenticated user through RLS.
-- `POST /v1/activities` accepts `orgId`, `staffRef`, `village`, `activityDate`, `productSku`, `reportedFarmerCount` and an optional `externalRef`. Only organization owners, admins and auditors may create records. Product SKU and reported farmer count are currently stored in activity metadata; product/farmer mapping and bulk import are not implemented in this API.
+- `POST /v1/activities` accepts `orgId`, `staffRef`, `village`, `activityDate`, `productSku`, `reportedFarmerCount` and an optional `externalRef`. Only organization owners, admins and auditors may create records. Product SKU and reported farmer count are stored in activity metadata.
+- `/v1/products`, `/v1/knowledge`, `/v1/farmers`, `/v1/farmers/import`, `/v1/farmers/{id}/opt-out`, and `/v1/call-batches` provide the authenticated prototype workflow. Knowledge is entered as source-linked claims and must be approved; import accepts CSV only; call batches remain drafts/approvals and never dispatch.
 - Requests require `Authorization: Bearer <Supabase access token>`. The secure activity prototype uses this API; the main demo dashboard does not.
-- Email-link sign-in only permits existing Supabase accounts. Configure allowed redirect URLs in Supabase before using it; sign-in links are sent only after a user submits the form.
-
+- Email-link sign-in only permits existing Supabase accounts. Configure allowed redirect URLs in Supabase before using it; this repository does not initiate sign-in emails on its own.

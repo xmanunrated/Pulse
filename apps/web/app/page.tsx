@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BookOpenCheck, Building2, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, Clock3, Database, FileSpreadsheet, Headphones, LayoutDashboard, MapPin, Menu, MoreHorizontal, PhoneCall, Plus, Search, Settings2, ShieldCheck, Sprout, Upload, Users, X, type LucideIcon } from 'lucide-react';
 
 type Tab = 'overview'|'activities'|'knowledge'|'sampling'|'calls'|'reports';
@@ -66,7 +67,7 @@ export default function Home(){
  const eligible=farmers.filter(f=>f.consent==='Eligible');
  const completed=calls.filter(c=>c.status==='Completed').length;
  function flash(msg:string){setNotice(msg);window.setTimeout(()=>setNotice(''),3500)}
- function csvCell(value:unknown){const text=String(value);const safe=/^\s*[=+\-@]/.test(text)?"'"+text:text;return '"'+safe.replaceAll('"','""')+'"'}
+ function csvCell(value:unknown){const text=String(value);const safe=/^\s*[=+\-@]/.test(text)?`'${text}`:text;return '"'+safe.replaceAll('"','""')+'"'}
  function exportCsv(){const rows=[['Activity ID','Staff','Village','District','Date','Product ID','Farmers','Status'],...activities.map(a=>[a.id,a.staff,a.village,a.district,a.date,a.product,a.farmers,a.status])];const csv='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');download(csv,'activity-audit-report.csv','text/csv;charset=utf-8;');flash('CSV report exported')}
  function download(content:string,name:string,type:string){const u=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
  function parseCsv(text:string):string[][] {
@@ -140,7 +141,7 @@ export default function Home(){
    <div className="sidebar-bottom"><div className="secure-card"><div><ShieldCheck size={17}/><b>Audit integrity</b></div><p>Versioned product facts, consent gates and review trails.</p><span><i/> Demo workspace</span></div><button className="nav-link" onClick={()=>flash('Settings will be enabled after authentication is connected.')}><Settings2 size={17}/>Settings</button><div className="user-row"><div className="avatar">AS</div><div><b>Workspace admin</b><small>Demo account</small></div><MoreHorizontal size={17}/></div></div>
   </aside>
   <main className="main">
-   <header className="topbar"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={20}/></button><div className="breadcrumbs"><span>Workspace</span><b>/</b><strong>{nav.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><span className="env-pill"><i/> Pilot environment</span><button className="icon-button" title="Search" onClick={()=>document.getElementById('global-search')?.focus()}><Search size={18}/></button><div className="avatar small-avatar">AS</div></div></header>
+   <header className="topbar"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={20}/></button><div className="breadcrumbs"><span>Workspace</span><b>/</b><strong>{nav.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><span className="env-pill"><i/> Pilot environment</span><Link className="btn secondary small-btn" href="/secure-workspace">Open secure workspace</Link><button className="icon-button" title="Search" onClick={()=>document.getElementById('global-search')?.focus()}><Search size={18}/></button><div className="avatar small-avatar">AS</div></div></header>
    <div className="page-wrap">
     {tab==='overview'&&<>
      <div className="page-title-row"><div><div className="eyebrow">THURSDAY, 29 OCTOBER 2026 <span className="dot-sep">•</span> BIHAR PILOT</div><h1>Field activity overview</h1><p className="subtitle">Verify what happened in the field, using farmer feedback and approved product facts.</p></div><div className="title-actions"><button className="btn secondary" onClick={exportCsv}><ArrowDownToLine size={16}/> Export report</button><button className="btn primary" onClick={()=>setModal('activity')}><Plus size={16}/> Add activity</button></div></div>
