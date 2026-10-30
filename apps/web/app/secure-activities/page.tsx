@@ -212,11 +212,95 @@ export default function SecureActivitiesPage() {
     <main className="page-wrap" style={{ maxWidth: 1120 }}>
       <header className="page-title-row">
         <div>
-          <div className="eyebrow">FIELDLENS AI Â· AUTHEN×û¶‰ËkºwµçH]ˆÛ\ÜÓ˜[YOH˜Ø\™ZXYˆİ[O^ŞÈY[™Îˆ	ÌNN	È_O]”™XÙ[Xİ]š]Y\ÏÚ”›İÜÈ™]\›™Y[™\ˆ[İ\ˆÜ™Ø[š^˜][ÛˆY[X™\œÚ\[™“ÈÛXÚY\ËÜÙ]Ù]‚ˆÛØY[™ÈÈ]ˆÛ\ÜÓ˜[YOH™[\K\İ]H“ØY[™È›İXİYXİ]š]H]x )Ù]ˆˆXİ]š]Y\Ë›[™İOOHÈ]ˆÛ\ÜÓ˜[YOH™[\K\İ]H“›ÈXİ]š]Y\È\™H]˜Z[X›H›Üˆ\ÈÜ™Ø[š^˜][Û‹Ù]ˆˆ
-ˆ]ˆÛ\ÜÓ˜[YOHX›K\ØÜ›ÛX›OXY‘]Oİ”İY™İ•š[YÙOİ”›ÙXİİ”™\ÜY˜\›Y\œÏİ”İ]\ÏİİİXY›ÙO‚ˆØXİ]š]Y\Ë›X\
+          <div className="eyebrow">FIELDLENS AI Â· AUTHENTICATED PROTOTYPE</div>
+          <h1>Secure activity records</h1>
+          <p className="subtitle">Organization-scoped activity data. This page does not schedule or place calls.</p>
+        </div>
+        <Link className="btn secondary" href="/">Back to demo dashboard</Link>
+      </header>
 
-Xİ]š]JHOˆˆÙ^O^ØXİ]š]KšYO‚ˆØXİ]š]K˜Xİ]š]WÙ]_OİØXİ]š]KœİY™—Ü™YŸOİØXİ]š]Kš[YÙ_Oİ‚ˆÔİš[™ÊXİ]š]K›Y]Y]OËœ›ÙXİÜÚİHÏÈ	ø %	Ê_Oİ‚ˆÔİš[™ÊXİ]š]K›Y]Y]OËœ™\ÜYÙ˜\›Y\—ØÛİ[ÏÈ	ø %	Ê_OİØXİ]š]Kœİ]\ßOİ‚ˆİŠ_Bˆİ›ÙOİX›OÙ]‚ˆ
-_BˆÜÙXİ[Û‚ˆ
-_BˆÏ‚ˆ
-_B‚ˆÛY\ÜØYÙH	‰ˆ›ÛOHœİ]\Èˆ\šXK[]™OHœÛ]HˆÛ\ÜÓ˜[YOHš[™›ËX˜[›™\ˆˆİ[O^ŞÈX\™Ú[•ÜˆMˆ_OÛY\ÜØYÙ_OÜŸBˆÛXZ[‚ˆ
-NÂŸB
+      {(!supabase || !API_URL) && (
+        <section className="card" style={{ padding: 20, marginBottom: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Setup required</h2>
+          <p className="subtitle">Set the Supabase URL and publishable key in the web environment, then restart the app.</p>
+        </section>
+      )}
+
+      {!authReady ? (
+        <section className="card empty-state">Checking your sign-in sessionâ€¦</section>
+      ) : !session ? (
+        <section className="card" style={{ maxWidth: 520, padding: 22 }}>
+          <div className="card-head">
+            <div><h2>Sign in to your workspace</h2><p>Only existing accounts can request a sign-in link.</p></div>
+          </div>
+          <form className="form" onSubmit={requestSignInLink}>
+            <label>Email address
+              <input type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} />
+            </label>
+            <button className="btn primary" disabled={busy || !supabase || !API_URL} type="submit">
+              {busy ? 'Sendingâ€¦' : 'Send sign-in link'}
+            </button>
+          </form>
+          <p className="subtitle" style={{ marginTop: 14 }}>Your account must already have an organization membership. Ask the workspace admin for access.</p>
+        </section>
+      ) : (
+        <>
+          <section className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <strong>Signed in</strong>
+              <div className="subtitle">{session.user.email ?? 'Authenticated account'}</div>
+            </div>
+            <button className="btn secondary" disabled={busy} onClick={() => void signOut()} type="button">Sign out</button>
+          </section>
+
+          {organizations.length > 0 && (
+            <section className="card" style={{ padding: 16, marginBottom: 16 }}>
+              <label className="form" style={{ maxWidth: 460 }}>Organization
+                <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
+                  {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name} Â· {organization.role}</option>)}
+                </select>
+              </label>
+            </section>
+          )}
+
+          {canCreate && (
+            <section className="card" style={{ padding: 20, marginBottom: 16 }}>
+              <div className="card-head"><div><h2>Add a field activity</h2><p>Only activity metadata is collected here.</p></div></div>
+              <form className="form" onSubmit={createActivity}>
+                <div className="form-grid">
+                  <label>Staff reference<input name="staffRef" required maxLength={120} /></label>
+                  <label>Village<input name="village" required maxLength={120} /></label>
+                  <label>Activity date<input name="activityDate" type="date" required value={activityDate} onChange={(event) => setActivityDate(event.target.value)} /></label>
+                  <label>Product SKU<input name="productSku" required maxLength={80} /></label>
+                  <label>Reported farmer count<input name="reportedFarmerCount" type="number" min="1" max="100000" step="1" required /></label>
+                  <label>External reference (optional)<input name="externalRef" maxLength={100} /></label>
+                </div>
+                <div className="form-actions"><button className="btn primary" disabled={busy} type="submit">{busy ? 'Savingâ€¦' : 'Save activity'}</button></div>
+              </form>
+            </section>
+          )}
+
+          {organizations.length === 0 && !loading ? (
+            <section className="card empty-state">No organization membership was found for this account. Ask an administrator to grant workspace access.</section>
+          ) : (
+            <section className="card table-card">
+              <div className="card-head" style={{ padding: '18px 18px 0' }}><div><h2>Recent activities</h2><p>Rows returned under your organization membership and RLS policies.</p></div></div>
+              {loading ? <div className="empty-state">Loading protected activity dataâ€¦</div> : activities.length === 0 ? <div className="empty-state">No activities are available for this organization.</div> : (
+                <div className="table-scroll"><table><thead><tr><th>Date</th><th>Staff</th><th>Village</th><th>Product</th><th>Reported farmers</th><th>Status</th></tr></thead><tbody>
+                  {activities.map((activity) => <tr key={activity.id}>
+                    <td>{activity.activity_date}</td><td>{activity.staff_ref}</td><td>{activity.village}</td>
+                    <td>{String(activity.metadata?.product_sku ?? 'â€”')}</td>
+                    <td>{String(activity.metadata?.reported_farmer_count ?? 'â€”')}</td><td>{activity.status}</td>
+                  </tr>)}
+                </tbody></table></div>
+              )}
+            </section>
+          )}
+        </>
+      )}
+
+      {message && <p role="status" aria-live="polite" className="info-banner" style={{ marginTop: 16 }}>{message}</p>}
+    </main>
+  );
+}
+

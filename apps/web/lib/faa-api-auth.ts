@@ -48,3 +48,4 @@ export async function authenticateRequest(request: Request): Promise<Authenticat
 
   return { ok: true, client, userId: data.user.id };
 }
+

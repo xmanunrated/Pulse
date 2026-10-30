@@ -92,3 +92,4 @@ export async function POST(request: Request) {
   if (error) return apiResponse({ message: 'Could not save activity.' }, 500);
   return apiResponse({ accepted: true, data }, 201);
 }
+
