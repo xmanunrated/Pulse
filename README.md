@@ -7,7 +7,7 @@ A Hindi/Bhojpuri-ready B2B SaaS foundation for independently auditing company-re
 - **Web dashboard (`apps/web`)**: responsive overview, activity register, product knowledge status, consent eligibility register, sample-batch creation, call queue, reports and CSV export.
 - **Demo workflow**: add activities/products, import simple CSV, filter activity rows, create reproducible sample selections, queue simulated calls and export reports. Demo records are stored in browser localStorage.
 - **Supabase schema foundation**: tenant/organization membership, product knowledge versions, activities, farmers, activity participants/consent, sampling batches, audit calls, assessments and audit event log. RLS is enabled on the new `faa_*` tables.
-- **NestJS API scaffold (`apps/api`)**: health endpoint, validation configuration and a safe non-persisting activities stub until JWT + tenant checks are implemented.
+- **NestJS API (`apps/api`)**: health endpoint and authenticated activity list/create routes. The API verifies Supabase access tokens, checks organization roles for writes and uses the caller's JWT so Supabase RLS remains in force; it does not use a service-role key. The dashboard is still a localStorage demo and does not call these routes.
 - **Voice and queue worker scaffolds**: separate persistent-service entry points; they do not call real numbers or connect to a provider by default.
 - **Shared Zod contracts (`packages/shared`)** for import and assessment payloads.
 
@@ -54,8 +54,8 @@ Open `http://localhost:3000`. The dashboard is intentionally labelled as a demo 
 
 ## Next production gates
 
-1. Implement Supabase OTP login, organization bootstrap/invites, server-side JWT verification and membership context.
-2. Replace localStorage data in the dashboard with authenticated tenant-scoped CRUD.
+1. Implement Supabase OTP login, organization bootstrap/invites and session handling; the API currently expects a valid Supabase bearer token.
+2. Replace localStorage data in the dashboard with authenticated tenant-scoped API calls and CRUD.
 3. Implement validated XLSX/CSV import with duplicate detection and import error report.
 4. Implement approved knowledge ingestion (source upload, structured claims, version approval and retrieval).
 5. Persist sampling batches, seed and selected participant IDs; enforce sample approval and eligibility server-side.
@@ -64,6 +64,13 @@ Open `http://localhost:3000`. The dashboard is intentionally labelled as a demo 
 8. Add tests, secrets management, rate limits, monitoring, data retention policy and backup/restore validation.
 9. Connect a dedicated GitHub repository and Vercel project after account permissions allow it. No unrelated repository has been modified and no deployment has been claimed.
 
-## Environment variables (planned)
+## Environment variables
 
-See `apps/web/.env.example`. Never expose a Supabase service-role key in a `NEXT_PUBLIC_*` variable or browser bundle. The API/worker credentials are not yet configured.
+See `apps/web/.env.example` for the browser URL and publishable key, and `apps/api/.env.example` for the API URL, publishable key and allowed web origin. Never put a service-role key in the browser app or expose it through a `NEXT_PUBLIC_*` variable. The API has no service-role credential configured.
+
+## Activity API
+
+- `GET /v1/activities` accepts an optional `orgId` UUID and returns at most 500 rows visible to the authenticated user through RLS.
+- `POST /v1/activities` accepts `orgId`, `staffRef`, `village`, `activityDate`, `productSku`, `reportedFarmerCount` and an optional `externalRef`. Only organization owners, admins and auditors may create records. Product SKU and reported farmer count are currently stored in activity metadata; product/farmer mapping and bulk import are not implemented in this API.
+- Requests require `Authorization: Bearer <Supabase access token>`. The web demo does not yet authenticate users or call these endpoints.
+

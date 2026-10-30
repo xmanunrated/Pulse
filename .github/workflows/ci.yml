@@ -29,13 +29,16 @@ jobs:
           test -f apps/api/package.json
           test -f apps/api/src/main.ts
           test -f apps/api/src/modules/activities.controller.ts
+          test -f apps/api/src/auth/supabase-auth.guard.ts
+          test -f apps/api/src/auth/supabase.service.ts
           test -f packages/shared/src/index.ts
           test -f apps/voice-worker/package.json
           test -f apps/job-worker/package.json
+          test -f supabase/config.toml
+          grep -Fq 'schemas = ["public", "graphql_public"]' supabase/config.toml
+          ! grep -Fq '"private"' supabase/config.toml
           test -f supabase/migrations/20261029155116_farmer_activity_audit_core.sql
-          test -f supabase/migrations/20261029155124_restrict_activity_audit_helper_functions.sql
           test -f supabase/migrations/20261029155200_faa_rls_policies.sql
-          test -f supabase/migrations/20261029191530_secure_faa_rls_helpers.sql
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Typecheck all workspace packages
@@ -44,3 +47,4 @@ jobs:
         run: pnpm --filter @faa/web run lint
       - name: Build all workspace packages
         run: pnpm --recursive run build
+
