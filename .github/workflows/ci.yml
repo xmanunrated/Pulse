@@ -29,8 +29,10 @@ jobs:
           test -f apps/api/package.json
           test -f apps/api/src/main.ts
           test -f apps/api/src/modules/activities.controller.ts
+          test -f apps/api/src/modules/organizations.controller.ts
           test -f apps/api/src/auth/supabase-auth.guard.ts
           test -f apps/api/src/auth/supabase.service.ts
+          test -f apps/web/app/secure-activities/page.tsx
           test -f packages/shared/src/index.ts
           test -f apps/voice-worker/package.json
           test -f apps/job-worker/package.json

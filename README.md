@@ -28,10 +28,11 @@ Prerequisites: Node.js 20+, pnpm 10+.
 ```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env
 pnpm dev
 ```
 
-Open `http://localhost:3000`. The dashboard is intentionally labelled as a demo workspace until authentication and database CRUD are connected. Setting Supabase URL/key alone does **not** switch the local demo data to live mode yet.
+In a second terminal, start the API with `pnpm --filter @faa/api dev`. Open `http://localhost:3000` for the localStorage demo dashboard or `http://localhost:3000/secure-activities` for the authenticated activity prototype. Configure the Supabase email sign-in redirect allowlist to include `http://localhost:3000/secure-activities`. The main dashboard remains demo-only; setting Supabase URL/key alone does **not** switch its data to live mode.
 
 ## Monorepo packages
 
@@ -50,12 +51,12 @@ Open `http://localhost:3000`. The dashboard is intentionally labelled as a demo 
 - Unknown/opted-out consent records are excluded by the sample demo.
 - Call scoring is a review aid, not a finding of employee misconduct. Human review is required for low confidence or conflicting evidence.
 - Phone encryption/HMAC creation, webhook signature verification, idempotent dispatch, consent re-checks at dispatch time and audit transcript evidence must be implemented before production.
-- The live Supabase security advisor reported warnings on authenticated execution of two `SECURITY DEFINER` membership helper functions. These are used by RLS policies; move the helpers to a non-exposed schema or otherwise remediate and re-run the advisor before production. Do not treat the current security review as fully cleared.
+- The live Supabase security advisor reported warnings on authenticated execution of two `SECURITY DEFINER` membership helper functions. A migration moves the helpers to `private`, but it has not been applied; verify the cloud API exposed-schema setting and migration history, apply through a reviewed release, and rerun the advisor before production. Do not treat the current security review as fully cleared.
 
 ## Next production gates
 
-1. Implement Supabase OTP login, organization bootstrap/invites and session handling; the API currently expects a valid Supabase bearer token.
-2. Replace localStorage data in the dashboard with authenticated tenant-scoped API calls and CRUD.
+1. Complete organization bootstrap/invites and production auth configuration. `/secure-activities` supports email-link sign-in for existing accounts; the API independently validates bearer tokens.
+2. Replace localStorage data in the main dashboard with authenticated tenant-scoped API calls and CRUD.
 3. Implement validated XLSX/CSV import with duplicate detection and import error report.
 4. Implement approved knowledge ingestion (source upload, structured claims, version approval and retrieval).
 5. Persist sampling batches, seed and selected participant IDs; enforce sample approval and eligibility server-side.
@@ -70,7 +71,9 @@ See `apps/web/.env.example` for the browser URL and publishable key, and `apps/a
 
 ## Activity API
 
+- `GET /v1/organizations` returns only the signed-in user's organization memberships and role, subject to RLS.
 - `GET /v1/activities` accepts an optional `orgId` UUID and returns at most 500 rows visible to the authenticated user through RLS.
 - `POST /v1/activities` accepts `orgId`, `staffRef`, `village`, `activityDate`, `productSku`, `reportedFarmerCount` and an optional `externalRef`. Only organization owners, admins and auditors may create records. Product SKU and reported farmer count are currently stored in activity metadata; product/farmer mapping and bulk import are not implemented in this API.
-- Requests require `Authorization: Bearer <Supabase access token>`. The web demo does not yet authenticate users or call these endpoints.
+- Requests require `Authorization: Bearer <Supabase access token>`. The secure activity prototype uses this API; the main demo dashboard does not.
+- Email-link sign-in only permits existing Supabase accounts. Configure allowed redirect URLs in Supabase before using it; sign-in links are sent only after a user submits the form.
 
