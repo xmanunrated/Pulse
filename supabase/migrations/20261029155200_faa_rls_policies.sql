@@ -36,8 +36,8 @@ BEGIN
       policy_row.tablename
     );
   END LOOP;
-END
-$$;
+END;
+$;
 
 CREATE POLICY faa_org_select
   ON public.faa_organizations FOR SELECT TO authenticated
