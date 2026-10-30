@@ -6,7 +6,7 @@ This runbook is for a local, internal QA session. It does not deploy the app, en
 
 - The Supabase project is active and healthy, but the live database has no FAA organizations, memberships, or activities.
 - The secure page only signs in existing Supabase users. An organization membership is required before it can show activity data.
-- The app is not deployed: the connected Vercel account has no Pulse project or deployment. Supabase hosts the backend services; it does not host this web app or NestJS API.
+- No Pulse project or deployment was found in the connected Vercel account. Other hosting providers were not checked. Supabase hosts the database and Auth services; it does not host this web app or NestJS API.
 - The repository migration `20261029155200_faa_rls_policies.sql` is not recorded in the live migration ledger even though the expected policies are present. The pending `20261029191530_secure_faa_rls_helpers.sql` migration has not been applied. Do not run a bulk migration push until the ledger discrepancy and cloud API exposed-schema setting have been reviewed.
 
 ## Local setup
@@ -59,4 +59,4 @@ No live DDL has been applied as part of this runbook.
 
 To let users access the prototype outside a developer's machine, deploy both the Next.js web app (`apps/web`) and NestJS API (`apps/api`) to hosting. Configure the production web origin in the API's `WEB_ORIGIN`, the public API URL in `NEXT_PUBLIC_FAA_API_URL`, and the exact production sign-in redirect in Supabase Auth. Keep the Supabase publishable key in the browser and any server-only credentials out of browser variables.
 
-No Vercel project or deployment was found in the connected account, and no hosting project has been created. The secure page still does not place or schedule calls.
+No Vercel project or deployment was found in the connected account. The secure page still does not place or schedule calls.
