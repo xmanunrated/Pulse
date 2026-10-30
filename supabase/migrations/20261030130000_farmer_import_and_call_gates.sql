@@ -69,6 +69,13 @@ language plpgsql
 set search_path = ''
 as $function$
 begin
+  if new.org_id is distinct from old.org_id
+    or new.phone_hmac is distinct from old.phone_hmac
+    or new.phone_encrypted is distinct from old.phone_encrypted then
+    raise exception 'A farmer organization and contact identity cannot be changed in place.'
+      using errcode = 'check_violation';
+  end if;
+
   if old.do_not_call then
     if not new.do_not_call
       or new.opted_out_at is distinct from old.opted_out_at
@@ -97,3 +104,9 @@ create trigger faa_farmers_preserve_opt_out
 before update on public.faa_farmers
 for each row
 execute function private.faa_preserve_farmer_opt_out();
+
+-- RLS still scopes authenticated reads and writes, but it does not make TRUNCATE
+-- subject to row policies. The app has no farmer deletion flow, and removing a
+-- suppression row would allow the same contact to be re-imported without its DNC state.
+revoke all on table public.faa_farmers from anon;
+revoke delete, truncate, references, trigger on table public.faa_farmers from authenticated;
