@@ -7,7 +7,7 @@ REVOKE ALL ON FUNCTION public.faa_has_org_role(uuid, text[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.faa_is_org_member(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.faa_has_org_role(uuid, text[]) TO authenticated;
 
-DO $$
+DO $rls$
 DECLARE
   policy_row record;
 BEGIN
@@ -37,7 +37,7 @@ BEGIN
     );
   END LOOP;
 END;
-$;
+$rls$;
 
 CREATE POLICY faa_org_select
   ON public.faa_organizations FOR SELECT TO authenticated
